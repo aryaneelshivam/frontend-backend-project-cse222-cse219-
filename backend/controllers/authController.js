@@ -3,8 +3,8 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 // Generate JWT
-const generateToken = (id) => {
-    return jwt.sign({ id }, process.env.JWT_SECRET, {
+const generateToken = (id, role) => {
+    return jwt.sign({ id, role }, process.env.JWT_SECRET, {
         expiresIn: '30d',
     });
 };
@@ -26,7 +26,7 @@ exports.registerUser = async (req, res) => {
         }
 
         // Validate role
-        const validRoles = ['patient', 'caregiver', 'doctor'];
+        const validRoles = ['patient', 'caregiver', 'doctor', 'admin'];
         const userRole = role && validRoles.includes(role) ? role : 'patient';
 
         user = new User({
@@ -44,7 +44,7 @@ exports.registerUser = async (req, res) => {
         await user.save();
 
         res.status(201).json({
-            token: generateToken(user._id),
+            token: generateToken(user._id, user.role),
             user: {
                 id: user._id,
                 name: user.name,
@@ -65,7 +65,7 @@ exports.registerUser = async (req, res) => {
 // @access   Public
 exports.loginUser = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, role } = req.body;
 
         if (!email || !password) {
             return res.status(400).json({ msg: 'Please enter all fields' });
@@ -76,13 +76,25 @@ exports.loginUser = async (req, res) => {
             return res.status(400).json({ msg: 'Invalid credentials' });
         }
 
+        // Enforce role check if provided
+        if (role && foundUser.role !== role) {
+            return res.status(403).json({ msg: `Access denied. This account is registered as a ${foundUser.role}, not a ${role}.` });
+        }
+
         const isMatch = await bcrypt.compare(password, foundUser.password);
         if (!isMatch) {
             return res.status(400).json({ msg: 'Invalid credentials' });
         }
 
         res.json({
-            token: generateToken(foundUser._id),
+            _id: foundUser._id,
+            name: foundUser.name,
+            email: foundUser.email,
+            role: foundUser.role,
+            age: foundUser.age,
+            doctorName: foundUser.doctorName,
+            token: generateToken(foundUser._id, foundUser.role),
+            // backward compatibility for existing code expecting res.user
             user: {
                 id: foundUser._id,
                 name: foundUser.name,
@@ -104,12 +116,25 @@ exports.loginUser = async (req, res) => {
 exports.getMe = async (req, res) => {
     try {
         const foundUser = await User.findById(req.user.id).select('-password');
-        
+
         if (!foundUser) {
             return res.status(404).json({ msg: 'User not found' });
         }
-        
+
         res.json(foundUser);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+};
+
+// @desc     Get all doctors (public)
+// @route    GET api/auth/doctors
+// @access   Public
+exports.getDoctorsPublic = async (req, res) => {
+    try {
+        const doctors = await User.find({ role: 'doctor' }).select('name _id');
+        res.json(doctors);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');

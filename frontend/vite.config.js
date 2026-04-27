@@ -11,6 +11,7 @@ export default defineConfig({
         medicines: resolve(__dirname, 'medicines.html'),
         history: resolve(__dirname, 'history.html'),
         profile: resolve(__dirname, 'profile.html'),
+        admin: resolve(__dirname, 'admin.html'),
       },
     },
   },

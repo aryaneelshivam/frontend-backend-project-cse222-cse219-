@@ -46,12 +46,20 @@
                         <!-- Hidden: edit mode ID -->
                         <input type="hidden" id="edit-med-id">
 
-                        <!-- Doctor only: assign to patient -->
-                        <div id="patient-select-container" class="hidden">
-                            <label class="block text-xs font-bold text-slate-400 dark:text-slate-500 uppercase mb-2 ml-1">Assign to Patient</label>
-                            <select id="assign-patient" class="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-transparent dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-base font-medium">
-                                <option value="">Select a patient...</option>
-                            </select>
+                        <!-- Doctor only: assign to patient & diagnosis -->
+                        <div id="patient-select-container" class="hidden space-y-6">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-400 dark:text-slate-500 uppercase mb-2 ml-1">Assign to Patient</label>
+                                <select id="assign-patient" class="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-transparent dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-base font-medium">
+                                    <option value="">Select a patient...</option>
+                                </select>
+                            </div>
+                            <div id="diagnosis-field-container">
+                                <label class="block text-xs font-bold text-slate-400 dark:text-slate-500 uppercase mb-2 ml-1">Diagnosed Disease</label>
+                                <input type="text" id="med-diagnosis" placeholder="e.g. Type 2 Diabetes, Hypertension"
+                                    class="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-transparent dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-base font-medium">
+                                <p class="text-[10px] text-slate-400 mt-1 ml-1 font-medium italic">This will update the patient's official diagnosis record.</p>
+                            </div>
                         </div>
 
                         <div>

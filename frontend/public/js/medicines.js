@@ -278,6 +278,7 @@ window.cancelEdit = function() {
         picker.querySelectorAll('input[name="day-of-week"]').forEach(cb => cb.checked = false);
     }
     if (document.getElementById('med-notes')) document.getElementById('med-notes').value = '';
+    if (document.getElementById('med-diagnosis')) document.getElementById('med-diagnosis').value = '';
 
     document.getElementById('form-title').textContent = 'Add Medication';
     document.getElementById('form-icon').className = 'w-14 h-14 rounded-2xl bg-primary dark:bg-sky-600/10 flex items-center justify-center text-primary';
@@ -301,6 +302,7 @@ async function handleFormSubmit(e) {
     const frequency = document.getElementById('med-frequency')?.value || 'Daily';
     const status    = document.getElementById('med-status')?.value || 'active';
     const notes     = document.getElementById('med-notes')?.value.trim();
+    const diagnosis = document.getElementById('med-diagnosis')?.value.trim();
 
     // Collect selected days of week (for Weekly)
     const daysOfWeek = Array.from(
@@ -344,6 +346,7 @@ async function handleFormSubmit(e) {
             if (user.role === 'doctor') {
                 if (patientId) data.user = patientId;
                 if (notes) data.notes = notes;
+                if (diagnosis) data.diagnosis = diagnosis;
             }
             await apiFetch('/medicines', { method: 'POST', body: JSON.stringify(data) });
             addMedForm.reset();

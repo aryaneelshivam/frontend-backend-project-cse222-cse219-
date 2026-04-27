@@ -5,7 +5,8 @@ const {
     getLogStats, 
     getMyLogs, 
     createLog, 
-    deleteLog 
+    deleteLog,
+    undoLog
 } = require('../controllers/logController');
 const { protect } = require('../middleware/auth');
 
@@ -13,6 +14,7 @@ router.get('/patient/:userId', protect, getPatientLogs);
 router.get('/stats/:userId', protect, getLogStats);
 router.get('/', protect, getMyLogs);
 router.post('/', protect, createLog);
+router.delete('/undo', protect, undoLog);
 router.delete('/:id', protect, deleteLog);
 
 module.exports = router;

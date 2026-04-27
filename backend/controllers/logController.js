@@ -131,3 +131,26 @@ exports.deleteLog = async (req, res) => {
         res.status(500).send('Server error');
     }
 };
+
+// @desc     Undo a log entry
+// @route    DELETE api/logs/undo
+// @access   Private
+exports.undoLog = async (req, res) => {
+    try {
+        const { logId } = req.body;
+        if (!logId) return res.status(400).json({ msg: 'Log ID is required' });
+
+        const log = await Log.findById(logId);
+        if (!log) return res.status(404).json({ msg: 'Log not found' });
+
+        if (log.user.toString() !== req.user.id) {
+            return res.status(401).json({ msg: 'Not authorized' });
+        }
+
+        await Log.findByIdAndDelete(logId);
+        res.json({ msg: 'Log removed' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+};

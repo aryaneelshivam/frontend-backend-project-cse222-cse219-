@@ -45,3 +45,36 @@ exports.getPatientVitals = async (req, res) => {
         res.status(500).send('Server error');
     }
 };
+
+// @desc     Update vitals for a specific user (Caregiver only)
+// @route    POST api/vitals/update
+// @access   Private (Caregiver)
+exports.updateVitals = async (req, res) => {
+    try {
+        const { userId, heartRate, systolic, diastolic } = req.body;
+        let vitals = await Vitals.findOne({ user: userId }).sort({ date: -1 });
+
+        if (vitals) {
+            if (heartRate !== undefined) vitals.heartRate = heartRate;
+            if (systolic || diastolic) {
+                vitals.bloodPressure = { 
+                    systolic: systolic || vitals.bloodPressure?.systolic, 
+                    diastolic: diastolic || vitals.bloodPressure?.diastolic 
+                };
+            }
+            vitals.date = Date.now();
+            await vitals.save();
+        } else {
+            vitals = new Vitals({
+                user: userId,
+                heartRate,
+                bloodPressure: { systolic, diastolic }
+            });
+            await vitals.save();
+        }
+        res.json(vitals);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+};

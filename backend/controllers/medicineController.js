@@ -55,13 +55,18 @@ exports.getMedicineById = async (req, res) => {
 // @access   Private
 exports.addMedicine = async (req, res) => {
     try {
-        const { name, dosage, time, frequency, daysOfWeek, startDate, user: targetUserId, notes } = req.body;
+        const { name, dosage, time, frequency, daysOfWeek, startDate, user: targetUserId, notes, diagnosis } = req.body;
         if (!name || !time) return res.status(400).json({ msg: 'Name and time are required' });
 
         const requestingUser = await User.findById(req.user.id);
         let assignToUser = req.user.id;
         if (requestingUser.role === 'doctor' && targetUserId) {
             assignToUser = targetUserId;
+
+            // Update patient diagnosis if provided by doctor
+            if (diagnosis) {
+                await User.findByIdAndUpdate(targetUserId, { diagnosis });
+            }
         }
 
         const newMedicine = new Medicine({

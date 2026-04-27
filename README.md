@@ -9,6 +9,7 @@ MedRemind is a production-ready healthcare management system designed for patien
 - **Patient Interface**: Minimalist and action-oriented. Focuses on "What do I take now?" with one-tap logging, real-time medication alerts, and snooze support.
 - **Caregiver Interface**: Monitoring-oriented. Provides live status updates, missed-dose alerts, and historical adherence analytics for linked patients.
 - **Doctor Interface**: Data-oriented. High-level clinical oversight, patient directory management, risk scoring, and remote prescription capabilities.
+- **Admin Interface**: Governance-oriented. Provides a "Super Patient" experience alongside a clinical control tower to manage doctors and oversee their patient loads.
 
 ---
 
@@ -24,6 +25,7 @@ The project follows a clean **Controller-Route** pattern on the backend and a st
   - `logController.js` — Medication intake logging (taken/skipped) + adherence stats
   - `vitalsController.js` — Heart rate & blood pressure logging per patient
   - `userController.js` — Profile updates, patient linking, role-based user queries
+  - `adminController.js` — CRUD operations for managing doctors and viewing their clinical stats
 - `routes/` — Lightweight routing definitions pointing to controllers
 - `config/db.js` — MongoDB connection management
 - `middleware/auth.js` — JWT verification + role-based route protection
@@ -36,11 +38,13 @@ The project follows a clean **Controller-Route** pattern on the backend and a st
 - `dashboard.html` — Main dashboard (role-aware: patient / doctor / caregiver)
 - `medicines.html` — Medication management (add, edit, delete, filter)
 - `history.html` — Adherence history with CSV export
+- `admin.html` — System administration and doctor management
 - `profile.html` — User profile & account settings
 - `js/api.js` — Central `apiFetch()` wrapper (auto-switches between local/production API URLs)
 - `js/auth.js` — Login/register logic + JWT storage
 - `js/layout.js` — Shared sidebar, header, and navigation engine (injected on all pages)
 - `js/dashboard.js` — Role-specific dashboard views (patient, doctor, caregiver)
+- `js/admin.js` — Admin panel logic (doctor CRUD, clinical records view)
 - `js/medicines.js` — Medicine form handling (CRUD, day picker, frequency logic)
 - `js/scheduler.js` — Real-time medication alert system with snooze
 - `js/history.js` — Adherence log rendering + CSV export
@@ -56,7 +60,7 @@ The project follows a clean **Controller-Route** pattern on the backend and a st
 | `name` | String | Full user name |
 | `email` | String | Unique login identifier |
 | `password` | String | Hashed with BcryptJS (salt: 10) |
-| `role` | Enum | `patient`, `caregiver`, `doctor` |
+| `role` | Enum | `patient`, `caregiver`, `doctor`, `admin` |
 | `age` | Number | Patient specific |
 | `doctorName` | String | Patient specific |
 | `caregiverId` | ObjectId | Reference to a Caregiver (for Patients) |
@@ -98,6 +102,7 @@ The project follows a clean **Controller-Route** pattern on the backend and a st
 ### 🔐 Authentication & Security
 - **JWT Authentication** — Tokens issued on login, required on all protected API routes via `Authorization: Bearer <token>`
 - **Role-Based Access Control (RBAC)** — Patient, Caregiver, Doctor roles with strict data isolation
+- **Role Enforcement** — Login system verifies the selected "Login As" role against the database, preventing cross-role account access (e.g., a patient cannot log in using the Doctor role).
 - **Password Hashing** — bcryptjs with salt factor 10; plaintext passwords never stored
 - **Auto Logout** — 401 responses automatically clear session and redirect to login
 - **Input Validation** — Server-side required field checks and role validation on all endpoints
@@ -106,6 +111,7 @@ The project follows a clean **Controller-Route** pattern on the backend and a st
 - **Patient Dashboard** — Greeting, live next-dose countdown timer, today's medication schedule, upcoming dose hero card, weekly adherence chart, AI-style insights, daily progress bar
 - **Doctor Dashboard** — Clinical Control Center with patient directory, adherence % per patient, risk level scoring (Low/Medium/High), critical care alerts, "New Prescription" modal
 - **Caregiver Dashboard** — Family Health Alerts, linked patient cards with adherence bars, missed dose indicators, link/unlink patients
+- **Admin Dashboard** — Functions as a "Super Patient" with full access to personal health tracking (Medications, History), plus an exclusive Admin Panel for system governance.
 
 ### 💊 Medication Management
 - **Full CRUD** — Add, edit, delete medications; doctors can prescribe to any patient
@@ -119,6 +125,8 @@ The project follows a clean **Controller-Route** pattern on the backend and a st
 ### ⏰ Real-Time Medication Alerts (Scheduler)
 - **Auto-polling** — Checks every 30 seconds for medicines due at the current time
 - **Modal Alert** — Elegant in-app popup with medicine name, time, dosage, and frequency
+- **Thunderbolt (Zap) Alerts** — Caregivers and Doctors can trigger manual "Thunderbolt" alerts from their dashboard to send instant medication reminders to patients.
+- **Patient Banner Notifications** — Triggered alerts appear as high-visibility, dismissible banners at the top of the patient's dashboard.
 - **✅ Taken Button** — Logs the dose via API and shows a success toast; removes the modal
 - **💤 Snooze Button** — Dismisses the alert and re-fires it exactly **10 minutes later**
 - **Snooze Toast** — Confirms "Snoozed! Reminder in 10 minutes." with a countdown feel
@@ -148,12 +156,19 @@ The project follows a clean **Controller-Route** pattern on the backend and a st
 - **Critical Alerts** — Flags patients with adherence <60%, 3+ missed doses in 3 days, or 2+ days inactive
 - **Patient Clinical File** — Modal with avg adherence, heart rate, blood pressure, active prescriptions, recent logs
 - **New Prescription & Doctor Notes** — Doctor can prescribe medicines directly to any patient from a modal and attach private-write/public-read clinical notes
+- **Set Patient Diagnosis** — Doctors can officially update a patient's diagnosis record while prescribing medication, which reflects immediately on the patient's profile.
 - **Adjust Prescription** — Accessible from the patient file modal
 
 ### 👨‍👩‍👧 Caregiver Features
 - **Link Patient** — Link a patient by email; caregiver can monitor their adherence
 - **Family Health Alerts** — Live panel showing which patients missed doses or have low adherence
 - **Patient Cards** — Adherence bar, last activity time, missed-dose warning badge, call/email shortcuts
+
+### 🛡️ Admin Features
+- **Doctor Management (CRUD)** — Add, edit, and remove clinical staff securely.
+- **Restricted Registration** — Admin accounts cannot be created via the public registration form to maintain system security.
+- **Clinical Records Oversight** — Click into any doctor's profile to view their total managed patients and a detailed patient directory.
+- **Dual-Role Capabilities** — Admins have full access to patient features, allowing them to manage their own health metrics while governing the system.
 
 ### 🎨 UI / UX
 - **Shared Sidebar** — Rendered by `layout.js` on all pages; includes the MedRemind logo, role-specific nav links, and a Logout button
@@ -180,7 +195,7 @@ The project follows a clean **Controller-Route** pattern on the backend and a st
 
 ## 🔐 Security Implementation
 
-1. **RBAC** — Patients only access their own data; caregivers only access linked patients; doctors have read access to all patients
+1. **RBAC** — Patients only access their own data; caregivers only access linked patients; doctors have read access to all patients; admins govern the clinical staff.
 2. **JWT** — Issued on login, expiry enforced, stored in `localStorage`
 3. **Password Hashing** — bcryptjs, never stored in plaintext
 4. **API Input Validation** — Server-side checks for required fields, role validity, and ownership before any write operation
@@ -214,6 +229,7 @@ This creates sample accounts:
 | Patient | patient@example.com | password123 |
 | Caregiver | caregiver@example.com | password123 |
 | Doctor | doctor@example.com | password123 |
+| Admin | admin@example.com | password123 |
 
 ### 3. Start Backend
 ```bash

@@ -9,9 +9,26 @@ const renderSidebar = () => {
     const user = JSON.parse(localStorage.getItem('user'));
     if (!user) return;
 
-    const isPage = (name) => window.location.pathname.includes(name);
+    const isPage = (name) => {
+        const hash = window.location.hash.replace('#', '');
+        if (hash) {
+            return hash === name || window.location.pathname.includes(name);
+        }
+        if (window.location.pathname.includes('admin') && name === 'overview') return true;
+        return window.location.pathname.includes(name);
+    };
 
     const getNavLinks = (role) => {
+        if (role === 'admin') {
+            return [
+                { href: '/admin.html#overview', label: 'Overview', icon: 'pie-chart', id: 'overview' },
+                { href: '/admin.html#users', label: 'Users', icon: 'users', id: 'users' },
+                { href: '/admin.html#doctors', label: 'Doctors', icon: 'stethoscope', id: 'doctors' },
+                { href: '/admin.html#analytics', label: 'Analytics', icon: 'bar-chart', id: 'analytics' },
+                { href: '/profile.html', label: 'Profile', icon: 'user', id: 'profile' }
+            ];
+        }
+
         const links = [
             { href: '/dashboard.html', label: 'Dashboard', icon: 'layout-dashboard', id: 'dashboard' }
         ];
@@ -23,7 +40,8 @@ const renderSidebar = () => {
         if (role !== 'doctor') {
             links.push({ href: '/history.html', label: 'History', icon: 'activity', id: 'history' });
         }
-        links.push({ href: '/profile.html', label: 'My Profile', icon: 'user', id: 'profile' });
+
+        links.push({ href: '/profile.html', label: 'Profile', icon: 'user', id: 'profile' });
 
         return links;
     };
@@ -84,6 +102,8 @@ const renderSidebar = () => {
         ? 'Clinical Control Center'
         : user.role === 'caregiver'
         ? 'Caregiver Hub'
+        : user.role === 'admin'
+        ? 'Administrator Hub'
         : 'Personal Health Dashboard';
 
     const showGreeting = isPage('dashboard');
@@ -104,15 +124,7 @@ const renderSidebar = () => {
             </div>
             ` : ''}
             <div class="flex items-center gap-3 sm:gap-4 ml-auto">
-                <!-- Gamified Counters -->
-                <div class="hidden sm:flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-700 rounded-xl border-2 border-slate-200 dark:border-slate-600">
-                    <i data-lucide="gem" class="w-5 h-5 text-secondary shrink-0"></i>
-                    <span class="font-black text-secondary">450</span>
-                </div>
-                <div class="hidden sm:flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-700 rounded-xl border-2 border-slate-200 dark:border-slate-600">
-                    <i data-lucide="flame" class="w-5 h-5 text-warning shrink-0"></i>
-                    <span class="font-black text-warning">12</span>
-                </div>
+                <!-- Gamified Counters Removed -->
 
                 <button id="theme-toggle" class="w-12 h-12 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 transition-all border-b-4 border-slate-200 dark:border-slate-600 active:border-b-0 active:translate-y-1">
                     <i data-lucide="moon" class="w-5 h-5 block dark:hidden"></i>

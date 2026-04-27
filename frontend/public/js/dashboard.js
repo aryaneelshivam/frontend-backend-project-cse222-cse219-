@@ -78,7 +78,7 @@ async function renderPatientContainer(container) {
                     <div class="flex items-center justify-between mb-4">
                         <div class="flex items-center gap-2">
                             <i data-lucide="zap" class="text-warning w-6 h-6 streak-flame"></i>
-                            <h4 class="text-lg font-display font-black text-slate-700 dark:text-slate-200">XP Progress</h4>
+                            <h4 class="text-lg font-display font-black text-slate-700 dark:text-slate-200">Daily Progress</h4>
                         </div>
                         <span id="daily-progress-pct" class="text-lg font-black text-warning">0%</span>
                     </div>
@@ -136,7 +136,7 @@ async function renderPatientView() {
             .filter(med => isMedicineDueToday(med)) // Only show meds due today per frequency
             .map(med => {
                 const log = todayLogs.find(l => l.medicine?._id === med._id || l.medicine === med._id);
-                return { ...med, status: log ? log.status : 'pending', timeMins: timeToMinutes(med.time) };
+                return { ...med, status: log ? log.status : 'pending', timeMins: timeToMinutes(med.time), logId: log ? log._id : null };
             }).sort((a, b) => {
                 if (a.status === 'pending' && b.status !== 'pending') return -1;
                 if (a.status !== 'pending' && b.status === 'pending') return 1;
@@ -145,7 +145,40 @@ async function renderPatientView() {
 
         // Task 8: Render Hero Section
         const pendingMeds = medsWithStatus.filter(m => m.status === 'pending');
-        const heroEl = document.getElementById('next-dose-hero');
+        
+    try {
+        const alerts = await apiFetch('/users/alerts');
+        let alertsContainer = document.getElementById('patient-alerts-container');
+        if (!alertsContainer) {
+            const heroParent = document.getElementById('next-dose-hero')?.parentElement;
+            if (heroParent) {
+                alertsContainer = document.createElement('div');
+                alertsContainer.id = 'patient-alerts-container';
+                heroParent.insertBefore(alertsContainer, document.getElementById('next-dose-hero'));
+            }
+        }
+        if (alertsContainer) {
+            if (alerts && alerts.length > 0) {
+                alertsContainer.innerHTML = alerts.map(a => `
+                    <div id="alert-${a._id}" class="mb-4 bg-rose-50 border-l-4 border-rose-500 p-4 rounded-r-xl flex items-center justify-between shadow-sm">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 bg-rose-100 rounded-lg text-rose-600"><i data-lucide="bell-ring" class="w-5 h-5"></i></div>
+                            <div>
+                                <p class="text-rose-800 font-bold text-sm">${a.message}</p>
+                                <p class="text-rose-500 text-xs mt-0.5">${new Date(a.date).toLocaleString([], {dateStyle: 'short', timeStyle: 'short'})}</p>
+                            </div>
+                        </div>
+                        <button onclick="dismissAlert('${a._id}')" class="text-rose-400 hover:text-rose-600 p-2"><i data-lucide="x" class="w-4 h-4"></i></button>
+                    </div>
+                `).join('');
+            } else {
+                alertsContainer.innerHTML = '';
+            }
+            lucide.createIcons();
+        }
+    } catch(e) { console.error('Failed to fetch alerts', e); }
+
+    const heroEl = document.getElementById('next-dose-hero');
         
         if (window.countdownInterval) {
             clearInterval(window.countdownInterval);
@@ -171,7 +204,7 @@ async function renderPatientView() {
                         <div class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm border-b-4 border-white/30">
                             <i data-lucide="award" class="w-10 h-10 text-white"></i>
                         </div>
-                        <h3 class="text-3xl font-display font-black">All caught up! +50 XP</h3>
+                        <h3 class="text-3xl font-display font-black">All caught up!</h3>
                         <p class="mt-2 text-lg font-bold opacity-90">You've completed your daily quest!</p>
                     </div>
                 `;
@@ -209,7 +242,7 @@ async function renderPatientView() {
                     // Future dose - show "All caught up" AND countdown below it
                     heroEl.innerHTML = `
                         <div class="bg-primary rounded-[2.5rem] p-8 text-white relative overflow-hidden border-b-4 border-primary-dark text-center mb-6">
-                            <h3 class="text-2xl font-display font-black">All caught up for now! +10 XP</h3>
+                            <h3 class="text-2xl font-display font-black">All caught up for now!</h3>
                             <p class="mt-1 opacity-90 font-bold">You've completed your current quests.</p>
                         </div>
                         <div class="bg-white dark:bg-slate-800 dark:border-slate-700 rounded-[2rem] p-6 border-2 border-slate-200 border-b-4 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden">
@@ -318,7 +351,7 @@ async function renderPatientView() {
                                         <button onclick="logMed('${m._id}', 'skipped')" class="flex-1 sm:flex-none px-4 py-3 bg-danger text-white rounded-xl border-b-4 border-danger-dark hover:brightness-110 transition-all active:border-b-0 active:translate-y-1"><i data-lucide="x" class="mx-auto"></i></button>
                                         <button onclick="alert('Reminder set for 15 mins')" class="flex-1 sm:flex-none px-4 py-3 bg-slate-100 text-slate-500 rounded-xl border-b-4 border-slate-200 hover:bg-slate-200 transition-all active:border-b-0 active:translate-y-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-300"><i data-lucide="bell-ring" class="mx-auto"></i></button>
                                     ` : `
-                                        <button onclick="logMed('${m._id}', 'pending')" class="px-6 py-3 bg-slate-100 text-slate-500 rounded-xl border-b-4 border-slate-200 font-bold uppercase text-xs tracking-wider hover:bg-slate-200 transition-all active:border-b-0 active:translate-y-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-300">Undo</button>
+                                        <button onclick="undoLog('${m.logId}')" class="px-6 py-3 bg-slate-100 text-slate-500 rounded-xl border-b-4 border-slate-200 font-bold uppercase text-xs tracking-wider hover:bg-slate-200 transition-all active:border-b-0 active:translate-y-1 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-300">Undo</button>
                                     `}
                                 </div>
                             </div>
@@ -353,7 +386,7 @@ async function renderPatientView() {
                 `;
             } else if (pct > 0) {
                 insightsEl.innerHTML = `
-                    <p>You're on fire! 🔥 Keep taking those meds to reach 100% XP for today.</p>
+                    <p>You're on fire! 🔥 Keep taking those meds to reach 100% for today.</p>
                 `;
             } else {
                 insightsEl.innerHTML = `
@@ -464,20 +497,22 @@ async function renderCaregiverView(container) {
         const patients = await apiFetch('/users/my-patients');
 
         const patientData = await Promise.all(patients.map(async p => {
-            const [stats, logs] = await Promise.all([
+            const [stats, logs, vitalsData] = await Promise.all([
                 apiFetch(`/logs/stats/${p._id}`),
-                apiFetch(`/logs/patient/${p._id}`)
+                apiFetch(`/logs/patient/${p._id}`),
+                apiFetch(`/vitals/stats/${p._id}`).catch(() => [])
             ]);
             const avg = stats.length > 0 ? Math.round(stats.reduce((acc, s) => acc + s.percentage, 0) / stats.length) : 0;
             const lastLog = logs[0];
             const missedToday = logs.some(l => l.status === 'skipped' && new Date(l.date).toDateString() === new Date().toDateString());
+            const vitals = vitalsData && vitalsData.length > 0 ? vitalsData[0] : null;
 
             const delayed = logs.some(l => l.status === 'pending' && new Date(l.date).toDateString() === new Date().toDateString());
             let status = 'Active';
             if (missedToday) status = 'Missed';
             else if (delayed) status = 'Delayed';
 
-            return { ...p, adherence: avg, lastLog, missedToday, status };
+            return { ...p, adherence: avg, lastLog, missedToday, status, vitals };
         }));
 
         const patientsAtRisk = patientData.filter(p => p.adherence < 70 || p.missedToday).length;
@@ -531,11 +566,32 @@ async function renderCaregiverView(container) {
                         </div>
                     ` : ''}
 
+                    <div class="mt-4 mb-6 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">Vitals Log</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 mb-3">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 mb-1">Heart Rate (BPM)</label>
+                                <input type="number" id="hr-${p._id}" placeholder="${p.vitals?.heartRate || '--'}" class="w-full text-sm font-bold p-2 rounded-lg border border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 outline-none focus:border-primary transition-all">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 mb-1">BP (Sys/Dia)</label>
+                                <div class="flex gap-1">
+                                    <input type="number" id="sys-${p._id}" placeholder="${p.vitals?.bloodPressure?.systolic || '--'}" class="w-full text-sm font-bold p-2 rounded-lg border border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 outline-none focus:border-primary transition-all text-center">
+                                    <span class="text-slate-400 self-center">/</span>
+                                    <input type="number" id="dia-${p._id}" placeholder="${p.vitals?.bloodPressure?.diastolic || '--'}" class="w-full text-sm font-bold p-2 rounded-lg border border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 outline-none focus:border-primary transition-all text-center">
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="updatePatientVitals('${p._id}')" class="w-full py-2 text-xs font-bold bg-white dark:bg-slate-700 text-primary border border-primary/20 rounded-lg hover:bg-primary hover:text-white transition-all shadow-sm">
+                            Update Vitals
+                        </button>
+                    </div>
+
                     <div class="flex gap-2">
                         <button onclick="viewPatientFile('${p._id}', '${p.name}')" class="flex-1 py-3 bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-100 transition-all flex items-center justify-center gap-2 text-sm"><i data-lucide="folder-open" class="w-4 h-4"></i> View File</button>
-                        <a href="tel:1234567890" class="w-12 h-12 flex items-center justify-center bg-slate-50 dark:bg-slate-900/50 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-emerald-50 hover:text-emerald-500 transition-all"><i data-lucide="phone"></i></a>
-                        <a href="mailto:${p.email}" class="w-12 h-12 flex items-center justify-center bg-slate-50 dark:bg-slate-900/50 text-slate-400 dark:text-slate-500 rounded-xl hover:bg-sky-50 hover:text-sky-500 transition-all"><i data-lucide="message-square"></i></a>
-                        <button onclick="alert('Reminder sent to ${p.name}')" class="w-12 h-12 flex items-center justify-center bg-amber-50 text-amber-500 rounded-xl hover:bg-amber-500 hover:text-white transition-all"><i data-lucide="zap"></i></button>
+                        <button onclick="sendPatientAlert('${p._id}', '${p.name}')" class="w-12 h-12 flex items-center justify-center bg-amber-50 text-amber-500 rounded-xl hover:bg-amber-500 hover:text-white transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)]"><i data-lucide="zap"></i></button>
                     </div>
                 </div>
             `).join('');
@@ -603,6 +659,7 @@ window.linkPatient = function() {
     document.getElementById('link-patient-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('link-patient-email').value.trim();
+        const diagnosis = document.getElementById('link-patient-diagnosis').value.trim();
         if (!email) return;
 
         const btn = e.target.querySelector('button[type="submit"]');
@@ -612,7 +669,7 @@ window.linkPatient = function() {
         try {
             await apiFetch('/users/link-patient', {
                 method: 'POST',
-                body: JSON.stringify({ email })
+                body: JSON.stringify({ email, diagnosis })
             });
             modal.remove();
             // Show success toast
@@ -718,6 +775,7 @@ async function renderDoctorView(container) {
                         <th class="px-8 py-4 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Adherence</th>
                         <th class="px-8 py-4 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Last Missed</th>
                         <th class="px-8 py-4 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Risk Level</th>
+                        <th class="px-8 py-4 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Vitals (HR/BP)</th>
                         <th class="px-8 py-4 text-right"></th>
                     </tr>
                 </thead>
@@ -731,12 +789,14 @@ async function renderDoctorView(container) {
         document.getElementById('doc-patient-count').textContent = patients.length;
 
         const patientData = await Promise.all(patients.map(async p => {
-            const [stats, logs] = await Promise.all([
+            const [stats, logs, vitalsData] = await Promise.all([
                 apiFetch(`/logs/stats/${p._id}`),
-                apiFetch(`/logs/patient/${p._id}`)
+                apiFetch(`/logs/patient/${p._id}`),
+                apiFetch(`/vitals/stats/${p._id}`).catch(() => [])
             ]);
             const avg = stats.length > 0 ? Math.round(stats.reduce((acc, s) => acc + s.percentage, 0) / stats.length) : 0;
             const lastMissed = logs.find(l => l.status === 'skipped');
+            const vitals = vitalsData && vitalsData.length > 0 ? vitalsData[0] : null;
 
             // Task 18: Risk Level Logic
             let risk = 'Low';
@@ -744,7 +804,7 @@ async function renderDoctorView(container) {
             if (avg < 50) { risk = 'High'; riskColor = 'text-rose-500 bg-rose-50'; }
             else if (avg < 80) { risk = 'Medium'; riskColor = 'text-amber-500 bg-amber-50'; }
 
-            return { ...p, adherence: avg, lastMissed, risk, riskColor, logs };
+            return { ...p, adherence: avg, lastMissed, risk, riskColor, logs, vitals };
         }));
 
         const overallAvg = Math.round(patientData.reduce((acc, p) => acc + p.adherence, 0) / (patientData.length || 1));
@@ -783,6 +843,17 @@ async function renderDoctorView(container) {
                 </td>
                 <td class="px-8 py-6">
                     <span class="px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest ${p.riskColor} ring-1 ring-inset ${p.risk === 'High' ? 'ring-rose-200' : p.risk === 'Medium' ? 'ring-amber-200' : 'ring-emerald-200'}">${p.risk}</span>
+                </td>
+                <td class="px-8 py-6">
+                    <div class="flex items-center justify-center gap-1" onclick="event.stopPropagation()">
+                        <input type="number" id="hr-${p._id}" placeholder="${p.vitals?.heartRate || 'HR'}" class="w-12 text-xs font-bold p-1.5 rounded border border-slate-200 dark:bg-slate-800 dark:border-slate-700 outline-none focus:border-primary text-center">
+                        <input type="number" id="sys-${p._id}" placeholder="${p.vitals?.bloodPressure?.systolic || 'Sys'}" class="w-12 text-xs font-bold p-1.5 rounded border border-slate-200 dark:bg-slate-800 dark:border-slate-700 outline-none focus:border-primary text-center">
+                        <span class="text-slate-400">/</span>
+                        <input type="number" id="dia-${p._id}" placeholder="${p.vitals?.bloodPressure?.diastolic || 'Dia'}" class="w-12 text-xs font-bold p-1.5 rounded border border-slate-200 dark:bg-slate-800 dark:border-slate-700 outline-none focus:border-primary text-center">
+                        <button onclick="updatePatientVitals('${p._id}')" class="p-1.5 ml-1 bg-primary text-white rounded hover:bg-primary-dark transition-all">
+                            <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
                 </td>
                 <td class="px-8 py-6 text-right">
                     <div class="flex items-center justify-end gap-2">
@@ -1104,4 +1175,82 @@ window.logMed = async function (medId, status) {
             alert('Failed to save log: ' + msg);
         }
     }
+};
+
+window.undoLog = async function(logId) {
+    if (!logId) return;
+    try {
+        await apiFetch('/logs/undo', {
+            method: 'DELETE',
+            body: JSON.stringify({ logId })
+        });
+        
+        const toast = document.createElement('div');
+        toast.className = 'fixed top-6 left-1/2 -translate-x-1/2 z-[200] px-6 py-4 bg-emerald-500 text-white font-bold rounded-2xl shadow-xl animate-fade-in text-sm flex items-center gap-2';
+        toast.innerHTML = `<i data-lucide="rotate-ccw" class="w-5 h-5"></i> Log Removed`;
+        document.body.appendChild(toast);
+        lucide.createIcons();
+
+        setTimeout(() => toast.remove(), 3000);
+        
+        initDashboard();
+    } catch (err) {
+        console.error('Error undoing log:', err);
+    }
+};
+
+window.updatePatientVitals = async function(userId) {
+    const hr = document.getElementById(`hr-${userId}`).value;
+    const sys = document.getElementById(`sys-${userId}`).value;
+    const dia = document.getElementById(`dia-${userId}`).value;
+
+    const payload = { userId };
+    if (hr) payload.heartRate = parseInt(hr, 10);
+    if (sys) payload.systolic = parseInt(sys, 10);
+    if (dia) payload.diastolic = parseInt(dia, 10);
+
+    if (Object.keys(payload).length === 1) {
+        alert("Please enter at least one vital to update.");
+        return;
+    }
+
+    try {
+        await apiFetch('/vitals/update', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+        
+        const toast = document.createElement('div');
+        toast.className = 'fixed top-6 left-1/2 -translate-x-1/2 z-[200] px-6 py-4 bg-emerald-500 text-white font-bold rounded-2xl shadow-xl animate-fade-in text-sm flex items-center gap-2';
+        toast.innerHTML = `<i data-lucide="check-circle" class="w-5 h-5"></i> Vitals Updated Successfully`;
+        document.body.appendChild(toast);
+        lucide.createIcons();
+        setTimeout(() => toast.remove(), 3000);
+        
+        initDashboard();
+    } catch (err) {
+        alert('Failed to update vitals: ' + (err.message || 'Server error'));
+    }
+};
+
+
+window.sendPatientAlert = async function(patientId, patientName) {
+    try {
+        await apiFetch('/users/alert', {
+            method: 'POST',
+            body: JSON.stringify({ patientId })
+        });
+        alert('Alert sent to ' + patientName + ' successfully!');
+    } catch(e) {
+        alert('Failed to send alert.');
+        console.error(e);
+    }
+};
+
+window.dismissAlert = async function(id) {
+    try {
+        await apiFetch(`/users/alerts/${id}/dismiss`, { method: 'PUT' });
+        const el = document.getElementById(`alert-${id}`);
+        if (el) el.remove();
+    } catch(e) { console.error('Failed to dismiss alert', e); }
 };

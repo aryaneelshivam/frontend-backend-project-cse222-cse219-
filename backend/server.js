@@ -30,6 +30,7 @@ app.use('/api/medicines', require('./routes/medicines'));
 app.use('/api/logs', require('./routes/logs'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/vitals', require('./routes/vitals'));
+app.use('/api/admin', require('./routes/adminRoutes'));
 
 // Root Health Check Route
 app.get('/', (req, res) => {
